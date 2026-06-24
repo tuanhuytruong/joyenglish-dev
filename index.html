@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Settings - PvP & Boss Raid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            alert("JS Error: " + msg + "\nLine: " + line + "\nURL: " + url);
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            alert("Unhandled Promise Rejection: " + event.reason);
+        });
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css?v=20260623-compact4">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { edKem: '#FFFBF0', edVang: '#F6C90E', edVangHover: '#DDAA00', edNavy: '#1E3A8A', edNavyLight: '#2563EB', edXanhRing: '#3B82F6' },
+                    boxShadow: { 'ed': '0 4px 6px -1px rgba(30, 58, 138, 0.1), 0 2px 4px -1px rgba(30, 58, 138, 0.06)' }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body { background-color: #0f172a; margin: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; } 
+        
+        /* 16:9 Aspect Ratio Wrapper */
+        #game-aspect-wrapper {
+            width: 100vw;
+            height: 56.25vw;
+            max-height: 100vh;
+            max-width: 177.77vh;
+            position: relative;
+            background: linear-gradient(to bottom right, #1a0b2e, #2d1b4e, #0f172a);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        #settings-modal { transition: opacity 0.2s ease-in-out; }
+        .excel-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+        .excel-table th { background-color: #1E3A8A; color: white; border: 1px solid #cbd5e1; padding: 8px; font-weight: 700; position: sticky; top: 0; z-index: 10; }
+        .excel-table td { border: 1px solid #cbd5e1; padding: 0; position: relative; height: 40px; background: white; }
+        .excel-table td.row-num { background-color: #f1f5f9; text-align: center; color: #64748b; font-weight: bold; width: 50px; }
+        .excel-input { width: 100%; height: 100%; border: none; padding: 8px; outline: none; background: transparent; font-family: inherit; font-size: 14px; font-weight: 600; color: #1E3A8A;}
+        .excel-cell.focused { outline: 2px solid #3B82F6; outline-offset: -2px; z-index: 5; }
+        .custom-checkbox { width: 1.2rem; height: 1.2rem; cursor: pointer; }
+        
+        .table-container { max-height: 55vh; overflow-y: auto; overflow-x: auto; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .img-preview { width: 32px; height: 32px; object-fit: contain; background: #e2e8f0; border-radius: 4px; border: 1px solid #cbd5e1; position: absolute; right: 4px; top: 3px; pointer-events: none;}
+        
+        .tab-btn.active { background-color: #1E3A8A !important; color: white !important; }
+        .tab-btn { background-color: #e5e7eb; color: #374151; transition: all 0.2s; }
+        .tab-content { display: none !important; }
+        .tab-content.active { display: block !important; }
+        #tab-data.active { display: flex !important; }
+        
+        .keybind-input { text-align: center; text-transform: uppercase; font-weight: 900; font-size: 1.5rem; cursor: pointer; transition: all 0.2s; }
+        .keybind-input:focus { outline: none; background-color: #FEF08A; box-shadow: 0 0 15px #FACC15; transform: scale(1.05); z-index: 10;}
+
+        @keyframes float-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-15px) scale(1.02); } }
+        .animate-boss { animation: float-breathe 4s ease-in-out infinite; }
+        .text-shadow { text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+
+        /* SKILL CSS & STATUS EFFECTS */
+        .frozen-ui {
+            filter: grayscale(60%) brightness(120%) hue-rotate(180deg) !important;
+            pointer-events: none;
+            position: relative;
+        }
+        
+        /* Hiệu ứng Khóa Stun */
+        .stun-lock {
+            filter: grayscale(100%);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        /* Hiệu ứng băng gai tua tủa */
+        .icy-spikes::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border: 6px dashed rgba(0, 255, 255, 0.7);
+            border-radius: inherit;
+            box-shadow: inset 0 0 20px rgba(0,255,255,0.5), 0 0 15px rgba(0,255,255,0.8);
+            z-index: 50;
+            pointer-events: none;
+            animation: ice-pulse 1s infinite alternate;
+        }
+        
+        @keyframes ice-pulse {
+            from { opacity: 0.7; transform: scale(1); }
+            to { opacity: 1; transform: scale(1.02); }
+        }
+
+        /* ✂️ CSS DÀNH RIÊNG CHO KAMEHAMEHA ✂️ */
+        .kamehameha-beam {
+            position: absolute; 
+            height: 54px; 
+            background: linear-gradient(to bottom, rgba(30,144,255,0.9) 0%, rgba(255,255,255,1) 25%, rgba(255,255,255,1) 75%, rgba(30,144,255,0.9) 100%);
+            box-shadow: 0 0 15px #1e90ff, 0 0 30px #0000ff, 0 0 50px rgba(0, 0, 255, 0.6);
+            border-radius: 20px;
+            transform-origin: left center;
+            z-index: 9998;
+            pointer-events: none;
+        }
+        
+        .kamehameha-ball {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffffff 40%, #1e90ff 75%, #0000ff 100%);
+            box-shadow: 0 0 20px #1e90ff, 0 0 40px #0000ff;
+            z-index: 9999;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+        }
+        .goku-gif {
+            position: absolute;
+            z-index: 10000;
+            pointer-events: none;
+            height: 150px; 
+            width: auto;
+        }
+
+        /* --- BASIC SKILL EFFECTS & UI --- */
+        .shield-bubble {
+            position: absolute;
+            width: 180px; 
+            height: 180px;
+            border-radius: 50%;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(1.1);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 5px solid rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5), inset 0 0 15px rgba(255,255,255,0.3);
+            top: 50%;
+            left: 50%;
+            margin-top: -90px;
+            margin-left: -90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .shield-bubble.active { opacity: 1; transform: scale(1); }
+        .shield-number { font-size: 2.5rem; font-weight: 900; color: white; text-shadow: 0 0 8px black, 0 0 15px rgba(0,0,0,0.8), 2px 2px 2px black; z-index: 30; }
+
+        .cd-overlay { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); border-radius: 50%; display: none; z-index: 10; pointer-events: none; }
+        .cd-ring { position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(#f1c40f var(--p, 0%), transparent 0); -webkit-mask: radial-gradient(transparent 50%, black 51%); mask: radial-gradient(transparent 50%, black 51%); display: none; z-index: 10; pointer-events: none; }
+        .cd-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 900; color: white; text-shadow: 0 0 5px black, 0 0 5px black; display: none; z-index: 20; pointer-events: none; }
+        .cd-ready-flash { animation: flashAnim 0.5s ease-out; }
+        
+        @keyframes flashAnim {
+            0% { box-shadow: 0 0 20px 5px #f1c40f; border-color: #fff; transform: scale(1.1); }
+            100% { box-shadow: 0 0 0px 0px transparent; transform: scale(1); }
+        }
+    </style>
+</head>
+
+<body class="font-sans">
+
+    <div id="game-aspect-wrapper">
+        <div id="debug-grid" class="hidden absolute inset-0 z-[999] pointer-events-none grid grid-cols-[repeat(16,1fr)] grid-rows-[repeat(9,1fr)] bg-black/20"></div>
+        <div id="dynamic-bg-container" class="absolute inset-0 pointer-events-none flex items-center justify-center z-[0] overflow-hidden" style="opacity: 0.4;"></div>
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 mix-blend-screen pointer-events-none z-[1]"></div>
+
+        <!-- ========================================== -->
+        <!-- QUIZ BOARD - ĐÁP ÁN -->
+        <!-- ========================================== -->
+        <div id="answers-container" class="absolute z-30 grid grid-cols-4 pointer-events-auto transition-all duration-300 transform origin-center">
+            
+            <div class="bg-red-200 rounded-3xl border-[14px] border-red-600 border-b-[16px] border-b-red-800 relative overflow-visible h-full shadow-xl flex items-center justify-center p-0 transition-all active:border-b-[8px] active:translate-y-2 group">
+                <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-red-900 border-[4px] border-white text-white font-black text-2xl w-14 h-12 flex items-center justify-center rounded-xl shadow-lg z-30 transform -rotate-6 pointer-events-none">1</div>
+                
+                <button onclick="triggerClickAnswer('p1', 0)" class="absolute left-[-15px] top-[-15px] bg-gradient-to-br from-cyan-400 to-blue-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_cyan] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p1-1" class="text-lg drop-shadow-md">A</span>
+                </button>
+
+                <button onclick="triggerClickAnswer('p2', 0)" class="absolute right-[-15px] bottom-[-15px] bg-gradient-to-br from-orange-400 to-red-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_orange] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p2-1" class="text-lg drop-shadow-md">H</span>
+                </button>
+                
+                <div id="overlay-ans-1" class="hidden absolute inset-0 z-40 bg-black/50 rounded-[14px] flex items-center justify-center backdrop-blur-[2px] pointer-events-none">
+                    <div id="icon-ans-1" class="scale-0 transition-transform duration-300"></div>
+                </div>
+                <div class="w-full h-full rounded-2xl overflow-hidden flex items-center justify-center p-4 z-10 relative pointer-events-none">
+                    <span class="text-3xl xl:text-4xl font-black text-red-950 text-center leading-tight w-full flex items-center justify-center">Option 1</span>
+                </div>
+            </div>
+            
+            <div class="bg-blue-200 rounded-3xl border-[14px] border-blue-600 border-b-[16px] border-b-blue-800 relative overflow-visible h-full shadow-xl flex items-center justify-center p-0 transition-all active:border-b-[8px] active:translate-y-2 group">
+                <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-blue-900 border-[4px] border-white text-white font-black text-2xl w-14 h-12 flex items-center justify-center rounded-xl shadow-lg z-30 transform rotate-6 pointer-events-none">2</div>
+                
+                <button onclick="triggerClickAnswer('p1', 1)" class="absolute left-[-15px] top-[-15px] bg-gradient-to-br from-cyan-400 to-blue-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_cyan] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p1-2" class="text-lg drop-shadow-md">S</span>
+                </button>
+
+                <button onclick="triggerClickAnswer('p2', 1)" class="absolute right-[-15px] bottom-[-15px] bg-gradient-to-br from-orange-400 to-red-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_orange] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p2-2" class="text-lg drop-shadow-md">J</span>
+                </button>
+                
+                <div id="overlay-ans-2" class="hidden absolute inset-0 z-40 bg-black/50 rounded-[14px] flex items-center justify-center backdrop-blur-[2px] pointer-events-none">
+                    <div id="icon-ans-2" class="scale-0 transition-transform duration-300"></div>
+                </div>
+                <div class="w-full h-full rounded-2xl overflow-hidden flex items-center justify-center p-4 z-10 relative pointer-events-none">
+                    <span class="text-3xl xl:text-4xl font-black text-blue-950 text-center leading-tight w-full flex items-center justify-center">Option 2</span>
+                </div>
+            </div>
+            
+            <div class="bg-yellow-200 rounded-3xl border-[14px] border-yellow-500 border-b-[16px] border-b-yellow-700 relative overflow-visible h-full shadow-xl flex items-center justify-center p-0 transition-all active:border-b-[8px] active:translate-y-2 group">
+                <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-yellow-700 border-[4px] border-white text-white font-black text-2xl w-14 h-12 flex items-center justify-center rounded-xl shadow-lg z-30 transform -rotate-6 pointer-events-none">3</div>
+                
+                <button onclick="triggerClickAnswer('p1', 2)" class="absolute left-[-15px] top-[-15px] bg-gradient-to-br from-cyan-400 to-blue-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_cyan] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p1-3" class="text-lg drop-shadow-md">D</span>
+                </button>
+
+                <button onclick="triggerClickAnswer('p2', 2)" class="absolute right-[-15px] bottom-[-15px] bg-gradient-to-br from-orange-400 to-red-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_orange] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p2-3" class="text-lg drop-shadow-md">K</span>
+                </button>
+                
+                <div id="overlay-ans-3" class="hidden absolute inset-0 z-40 bg-black/50 rounded-[14px] flex items-center justify-center backdrop-blur-[2px] pointer-events-none">
+                    <div id="icon-ans-3" class="scale-0 transition-transform duration-300"></div>
+                </div>
+                <div class="w-full h-full rounded-2xl overflow-hidden flex items-center justify-center p-4 z-10 relative pointer-events-none">
+                    <span class="text-3xl xl:text-4xl font-black text-yellow-950 text-center leading-tight w-full flex items-center justify-center">Option 3</span>
+                </div>
+            </div>
+            
+            <div class="bg-green-200 rounded-3xl border-[14px] border-green-600 border-b-[16px] border-b-green-800 relative overflow-visible h-full shadow-xl flex items-center justify-center p-0 transition-all active:border-b-[8px] active:translate-y-2 group">
+                <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-green-900 border-[4px] border-white text-white font-black text-2xl w-14 h-12 flex items-center justify-center rounded-xl shadow-lg z-30 transform rotate-6 pointer-events-none">4</div>
+                
+                <button onclick="triggerClickAnswer('p1', 3)" class="absolute left-[-15px] top-[-15px] bg-gradient-to-br from-cyan-400 to-blue-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_cyan] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p1-4" class="text-lg drop-shadow-md">F</span>
+                </button>
+
+                <button onclick="triggerClickAnswer('p2', 3)" class="absolute right-[-15px] bottom-[-15px] bg-gradient-to-br from-orange-400 to-red-600 text-white font-black w-12 h-12 flex items-center justify-center rounded-full shadow-[0_0_15px_orange] border-[4px] border-white z-50 hover:scale-110 active:scale-95 transition-all cursor-pointer focus:outline-none">
+                    <span id="ui-ans-p2-4" class="text-lg drop-shadow-md">L</span>
+                </button>
+                
+                <div id="overlay-ans-4" class="hidden absolute inset-0 z-40 bg-black/50 rounded-[14px] flex items-center justify-center backdrop-blur-[2px] pointer-events-none">
+                    <div id="icon-ans-4" class="scale-0 transition-transform duration-300"></div>
+                </div>
+                <div class="w-full h-full rounded-2xl overflow-hidden flex items-center justify-center p-4 z-10 relative pointer-events-none">
+                    <span class="text-3xl xl:text-4xl font-black text-green-950 text-center leading-tight w-full flex items-center justify-center">Option 4</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- QUIZ BOARD - CÂU HỎI -->
+        <!-- ========================================== -->
+        <div id="question-container" class="absolute z-20 pointer-events-auto flex flex-col p-2 transition-all duration-300 transform origin-center drop-shadow-2xl">
+            <div class="w-full h-full bg-white rounded-3xl shadow-[0_15px_30px_rgba(0,0,0,0.5)] border-[12px] border-amber-900 border-b-[16px] border-b-amber-950 flex items-center justify-center overflow-hidden relative p-4">
+                <img id="quiz-q-img" src="https://placehold.co/800x400/e2e8f0/475569?text=LOADING+QUESTION..." class="max-w-full max-h-full object-contain drop-shadow-md">
+                <p id="quiz-q-txt" class="text-5xl lg:text-7xl font-black text-gray-800 text-center leading-tight hidden">LOADING QUESTION...</p>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TIMER & Q COUNTER -->
+        <!-- ========================================== -->
+        <div id="game-hud" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 game-hud-panel">
+            <div class="hud-main-row">
+                <span class="hud-pill hud-mode">🎮 <span id="hud-mode-label">PvP</span></span>
+                <span class="hud-pill">⏱️ <span id="quiz-timer" class="tracking-widest">03:00</span></span>
+                <span class="hud-pill">Q: <span id="quiz-counter" class="text-yellow-300">1/20</span></span>
+            </div>
+            <div class="hud-help-row">
+                <span>✅ Đúng: +Mana, +Cash, +Streak</span>
+                <span>❌ Sai: Stun & reset streak</span>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PLAYER 1 (P1) -->
+        <!-- ========================================== -->
+        <div class="player-panel player-panel-p1 absolute z-20 flex flex-col items-center pointer-events-none">
+            <div class="flex flex-col gap-2 w-full pointer-events-auto">
+                <div class="flex items-start gap-2 bg-black/40 p-2 rounded-xl border border-gray-600 backdrop-blur-sm self-start">
+                    <div class="flex gap-1">
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">🔥</div>
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">❄️</div>
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">⚡</div>
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">🛡️</div>
+                    </div>
+                    <div class="w-px h-8 bg-gray-500/50 mx-1"></div>
+                    <div class="flex items-start gap-2">
+                        <div class="w-8 h-8 bg-gray-800 rounded-full border border-gray-50 flex items-center justify-center text-sm opacity-40 shadow-inner" id="p1-queue-2"></div>
+                        <button onclick="triggerClickSkill('p1', 'ult')" class="relative flex flex-col items-center group cursor-pointer active:scale-95 transition-all focus:outline-none pointer-events-auto">
+                            <div class="w-12 h-12 bg-blue-900 rounded-full border-2 border-cyan-400 flex items-center justify-center text-2xl shadow-[0_0_15px_cyan] transition-all" id="p1-queue-1">
+                                <span class="opacity-20 text-cyan-200">✨</span>
+                            </div>
+                            <div class="absolute -bottom-3 bg-blue-700 px-2 py-0.5 rounded text-[10px] font-black text-white border border-blue-400 shadow-md" id="ui-key-p1-ult">SPACE</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 w-full">
+                    <div class="w-full h-8 bg-black/60 rounded-full border-2 border-gray-600 p-1 relative overflow-hidden shadow-lg">
+                        <div id="p1-hp-bar" class="h-full w-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all"></div>
+                        <span id="p1-hp-txt" class="absolute inset-0 flex items-center justify-center text-white font-black text-sm text-shadow tracking-widest">100 / 100</span>
+                    </div>
+                    <div class="w-full h-8 bg-black/60 rounded-full border border-gray-600 p-1 relative overflow-hidden shadow-lg">
+                        <div id="p1-mana-bar" class="h-full w-[0%] bg-gradient-to-r from-cyan-400 to-blue-600 shadow-[0_0_15px_cyan] rounded-full transition-all"></div>
+                        <span id="p1-mana-txt" class="absolute inset-0 flex items-center justify-center text-cyan-100 font-bold text-sm text-shadow tracking-widest">Mana: 0/10</span>
+                    </div>
+                    <div class="player-reward-strip border-cyan-400/50 text-cyan-50">
+                        <span>💰 <strong id="p1-cash-txt">$0</strong></span>
+                        <span>🔥 Streak <strong id="p1-streak-txt">0</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2 pointer-events-auto mt-1">
+                <!-- Avatar P1 -->
+                <div class="animate-boss z-10 avatar-container relative w-32 h-32 xl:w-36 xl:h-36" id="p1-avatar-box">
+                    <div class="shield-bubble" id="p1-shield-bubble"><span id="p1-shield-txt" class="shield-number"></span></div>
+                    <div class="avatar-frame player-avatar-frame border-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.6)] bg-blue-950 relative shrink-0 z-10 avatar">
+                        <div id="p1-avatar-inner" class="avatar-media-wrap pointer-events-none">
+                            <img src="https://placehold.co/200x200/1E3A8A/F6C90E?text=P1" class="avatar-media">
+                        </div>
+                    </div>
+                </div>
+                <!-- Vùng Buttons P1 -->
+                <div id="shop-p1" class="player-shop-panel border-cyan-400/50">
+                    <button onclick="triggerClickShop('p1', 'mana')" id="shop-p1-mana" class="shop-btn" title="+2 Mana">⚡ $20 <span id="ui-key-p1-shop-mana" class="shop-key-hint">1</span></button>
+                    <button onclick="triggerClickShop('p1', 'shield')" id="shop-p1-shield" class="shop-btn" title="+25 Shield">🛡️ $30 <span id="ui-key-p1-shop-shield" class="shop-key-hint">2</span></button>
+                    <button onclick="triggerClickShop('p1', 'double')" id="shop-p1-double" class="shop-btn" title="2x cash for next 3 correct answers">💎 $40 <span id="ui-key-p1-shop-double" class="shop-key-hint">3</span></button>
+                </div>
+                <div id="actions-p1" class="flex gap-2 bg-black/50 p-2 rounded-full border border-gray-600 backdrop-blur-md shrink-0 shadow-xl transition-all">
+                    <div class="flex flex-col items-center relative w-12 h-12">
+                        <button id="btn-p1-atk" onclick="triggerClickSkill('p1', 'atk')" class="cd-btn w-full h-full bg-gray-800 border-2 border-orange-500 rounded-full text-orange-400 text-2xl shadow-[0_0_15px_rgba(251,146,60,0.5)] flex items-center justify-center hover:scale-110 opacity-90 hover:opacity-100 transition-all focus:outline-none relative cursor-pointer">
+                            🏹
+                            <div class="cd-ring"></div><div class="cd-overlay"></div><div class="cd-text" id="cd-txt-p1-atk"></div>
+                        </button>
+                        <span class="absolute -bottom-3 text-white text-[10px] font-black bg-black border border-gray-500 px-2 py-0.5 rounded-full shadow-md pointer-events-none z-30" id="ui-key-p1-s2">W</span>
+                    </div>
+                    <div class="flex flex-col items-center relative w-12 h-12">
+                        <button id="btn-p1-def" onclick="triggerClickSkill('p1', 'def')" class="cd-btn w-full h-full bg-gray-800 border-2 border-blue-500 rounded-full text-blue-400 text-2xl shadow-[0_0_15px_rgba(59,130,246,0.5)] flex items-center justify-center hover:scale-110 opacity-90 hover:opacity-100 transition-all focus:outline-none relative cursor-pointer">
+                            🛡️
+                            <div class="cd-ring"></div><div class="cd-overlay"></div><div class="cd-text" id="cd-txt-p1-def"></div>
+                        </button>
+                        <span class="absolute -bottom-3 text-white text-[10px] font-black bg-black border border-gray-500 px-2 py-0.5 rounded-full shadow-md pointer-events-none z-30" id="ui-key-p1-s1">Q</span>
+                    </div>
+                    <div class="flex flex-col items-center relative w-12 h-12">
+                        <button id="btn-p1-heal" onclick="triggerClickSkill('p1', 'heal')" class="cd-btn w-full h-full bg-gray-800 border-2 border-green-500 rounded-full text-green-400 text-2xl shadow-[0_0_15px_rgba(34,197,94,0.5)] flex items-center justify-center hover:scale-110 opacity-90 hover:opacity-100 transition-all focus:outline-none relative cursor-pointer">
+                            ✚
+                            <div class="cd-ring"></div><div class="cd-overlay"></div><div class="cd-text" id="cd-txt-p1-heal"></div>
+                        </button>
+                        <span class="absolute -bottom-3 text-white text-[10px] font-black bg-black border border-gray-500 px-2 py-0.5 rounded-full shadow-md pointer-events-none z-30" id="ui-key-p1-s3">E</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PLAYER 2 (P2/BOSS) -->
+        <!-- ========================================== -->
+        <div class="player-panel player-panel-p2 absolute z-20 flex flex-col items-center pointer-events-none">
+            
+            <div class="flex flex-col items-end gap-2 w-full pointer-events-auto">
+                <div class="flex items-start flex-row-reverse gap-2 bg-black/40 p-2 rounded-xl border border-gray-600 backdrop-blur-sm self-end">
+                    <div class="flex gap-1 flex-row-reverse">
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">🍔</div>
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">🌀</div>
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">⚡</div>
+                        <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-sm opacity-50 grayscale shadow-inner">💤</div>
+                    </div>
+                    <div class="w-px h-8 bg-gray-500/50 mx-1"></div>
+                    <div class="flex items-start flex-row-reverse gap-2">
+                        <div class="w-8 h-8 bg-gray-800 rounded-full border border-gray-500 flex items-center justify-center text-sm opacity-40 shadow-inner" id="p2-queue-2"></div>
+                        <!-- Nút CLICK Chiêu Cuối P2 -->
+                        <button onclick="triggerClickSkill('p2', 'ult')" class="relative flex flex-col items-center group cursor-pointer active:scale-95 transition-all focus:outline-none pointer-events-auto">
+                            <div class="w-12 h-12 bg-red-900 rounded-full border-2 border-orange-400 flex items-center justify-center text-2xl shadow-[0_0_15px_orange] transition-all" id="p2-queue-1">
+                                <span class="opacity-20 text-orange-200">✨</span>
+                            </div>
+                            <div class="absolute -bottom-3 bg-red-700 px-2 py-0.5 rounded text-[10px] font-black text-white border border-red-400 shadow-md" id="ui-key-p2-ult">ENTER</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 w-full">
+                    <div class="w-full h-8 bg-black/60 rounded-full border-2 border-gray-600 p-1 relative overflow-hidden shadow-lg">
+                        <div id="p2-hp-bar" class="h-full w-full bg-gradient-to-r from-red-500 to-orange-400 rounded-full transition-all origin-right"></div>
+                        <span id="p2-hp-txt" class="absolute inset-0 flex items-center justify-center text-white font-black text-sm text-shadow tracking-widest">1000 / 1000</span>
+                    </div>
+                    <div class="w-full h-8 bg-black/60 rounded-full border border-gray-600 p-1 relative overflow-hidden shadow-lg">
+                        <div id="p2-mana-bar" class="h-full w-[0%] bg-gradient-to-l from-fuchsia-600 to-rose-500 shadow-[0_0_15px_fuchsia] rounded-full transition-all origin-right float-right"></div>
+                        <span id="p2-mana-txt" class="absolute inset-0 flex items-center justify-center text-fuchsia-100 font-bold text-sm text-shadow tracking-widest">Mana: 0/10</span>
+                    </div>
+                    <div class="player-reward-strip is-p2 border-orange-400/50 text-orange-50">
+                        <span class="reward-cash">💰 <strong id="p2-cash-txt">$0</strong></span>
+                        <span class="reward-streak">🔥 Streak <strong id="p2-streak-txt">0</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2 pointer-events-auto mt-1">
+                <!-- Avatar P2 -->
+                <div class="animate-boss z-10 avatar-container relative w-32 h-32 xl:w-36 xl:h-36" id="p2-avatar-box">
+                    <div class="shield-bubble" id="p2-shield-bubble"><span id="p2-shield-txt" class="shield-number"></span></div>
+                    <div class="avatar-frame player-avatar-frame border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.6)] bg-black relative shrink-0 z-10 avatar">
+                        <div id="p2-avatar-inner" class="avatar-media-wrap pointer-events-none">
+                            <img src="https://placehold.co/200x200/7F1D1D/F6C90E?text=P2" class="avatar-media">
+                        </div>
+                    </div>
+                </div>
+                <!-- Vùng Buttons P2 -->
+                <div id="shop-p2" class="player-shop-panel border-orange-400/50">
+                    <button onclick="triggerClickShop('p2', 'mana')" id="shop-p2-mana" class="shop-btn" title="+2 Mana">⚡ $20 <span id="ui-key-p2-shop-mana" class="shop-key-hint">7</span></button>
+                    <button onclick="triggerClickShop('p2', 'shield')" id="shop-p2-shield" class="shop-btn" title="+25 Shield">🛡️ $30 <span id="ui-key-p2-shop-shield" class="shop-key-hint">8</span></button>
+                    <button onclick="triggerClickShop('p2', 'double')" id="shop-p2-double" class="shop-btn" title="2x cash for next 3 correct answers">💎 $40 <span id="ui-key-p2-shop-double" class="shop-key-hint">9</span></button>
+                </div>
+                <div id="actions-p2" class="flex gap-2 bg-black/50 p-2 rounded-full border border-gray-600 backdrop-blur-md shrink-0 shadow-xl transition-all">
+                    <div class="flex flex-col items-center relative w-12 h-12">
+                        <button id="btn-p2-atk" onclick="triggerClickSkill('p2', 'atk')" class="cd-btn w-full h-full bg-gray-800 border-2 border-orange-500 rounded-full text-orange-400 text-2xl shadow-[0_0_15px_rgba(251,146,60,0.5)] flex items-center justify-center hover:scale-110 opacity-90 hover:opacity-100 transition-all focus:outline-none relative cursor-pointer">
+                            🩴
+                            <div class="cd-ring"></div><div class="cd-overlay"></div><div class="cd-text" id="cd-txt-p2-atk"></div>
+                        </button>
+                        <span class="absolute -bottom-3 text-white text-[10px] font-black bg-black border border-gray-500 px-2 py-0.5 rounded-full shadow-md pointer-events-none z-30" id="ui-key-p2-s2">I</span>
+                    </div>
+                    <div class="flex flex-col items-center relative w-12 h-12">
+                        <button id="btn-p2-def" onclick="triggerClickSkill('p2', 'def')" class="cd-btn w-full h-full bg-gray-800 border-2 border-blue-500 rounded-full text-blue-400 text-2xl shadow-[0_0_15px_rgba(59,130,246,0.5)] flex items-center justify-center hover:scale-110 opacity-90 hover:opacity-100 transition-all focus:outline-none relative cursor-pointer">
+                            🛡️
+                            <div class="cd-ring"></div><div class="cd-overlay"></div><div class="cd-text" id="cd-txt-p2-def"></div>
+                        </button>
+                        <span class="absolute -bottom-3 text-white text-[10px] font-black bg-black border border-gray-500 px-2 py-0.5 rounded-full shadow-md pointer-events-none z-30" id="ui-key-p2-s1">U</span>
+                    </div>
+                    <div class="flex flex-col items-center relative w-12 h-12">
+                        <button id="btn-p2-heal" onclick="triggerClickSkill('p2', 'heal')" class="cd-btn w-full h-full bg-gray-800 border-2 border-green-500 rounded-full text-green-400 text-2xl shadow-[0_0_15px_rgba(34,197,94,0.5)] flex items-center justify-center hover:scale-110 opacity-90 hover:opacity-100 transition-all focus:outline-none relative cursor-pointer">
+                            ✚
+                            <div class="cd-ring"></div><div class="cd-overlay"></div><div class="cd-text" id="cd-txt-p2-heal"></div>
+                        </button>
+                        <span class="absolute -bottom-3 text-white text-[10px] font-black bg-black border border-gray-500 px-2 py-0.5 rounded-full shadow-md pointer-events-none z-30" id="ui-key-p2-s3">O</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MÀN HÌNH "START BATTLE" (VS SCREEN) -->
+        <!-- ========================================== -->
+        <div id="vs-modal" class="hidden fixed inset-0 z-[1500] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
+             <h1 class="text-6xl font-black text-white mb-12 tracking-widest animate-pulse">GET READY!</h1>
+             <div class="flex items-center gap-12 w-full max-w-5xl justify-center">
+                 <div class="flex flex-col items-center gap-6 animate-boss">
+                     <div class="avatar-frame vs-avatar-frame border-cyan-400 shadow-[0_0_50px_cyan] bg-black" id="vs-p1-avatar"></div>
+                     <input type="text" id="p1-name-input" value="P1" class="bg-black/50 border-4 border-cyan-500 rounded-full text-cyan-300 font-black text-3xl px-6 py-2 text-center outline-none uppercase w-64 placeholder-cyan-800 transition-all focus:bg-cyan-900 focus:text-white" placeholder="NAME P1">
+                 </div>
+                 <div class="text-9xl font-black text-yellow-500 italic drop-shadow-[0_0_20px_orange]">VS</div>
+                 <div class="flex flex-col items-center gap-6 animate-boss" style="animation-delay: 0.5s;">
+                     <div class="avatar-frame vs-avatar-frame border-orange-500 shadow-[0_0_50px_orange] bg-black" id="vs-p2-avatar"></div>
+                     <input type="text" id="p2-name-input" value="P2" class="bg-black/50 border-4 border-orange-500 rounded-full text-orange-400 font-black text-3xl px-6 py-2 text-center outline-none uppercase w-64 placeholder-orange-800 transition-all focus:bg-orange-900 focus:text-white" placeholder="NAME P2">
+                 </div>
+             </div>
+             <button id="btn-start-battle" class="mt-16 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black text-4xl px-16 py-6 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.6)] hover:scale-110 transition-all border-4 border-yellow-300 focus:outline-none">FIGHT!</button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MÀN HÌNH KẾT THÚC & LEADERBOARD (Ẩn mặc định) -->
+        <!-- ========================================== -->
+        <div id="endgame-modal" class="hidden fixed inset-0 z-[2000] bg-black/90 backdrop-blur-md flex items-center justify-center p-6">
+            <div id="confetti-container" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+            
+            <div class="bg-slate-900 border-4 border-yellow-500 rounded-3xl shadow-[0_0_50px_rgba(234,179,8,0.3)] w-full max-w-3xl max-h-[94vh] flex flex-col overflow-hidden relative z-10 animate-bounce" style="animation-iteration-count: 1; animation-duration: 0.5s;">
+                <div class="bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 p-4 text-center">
+                    <h1 id="winner-title" class="text-3xl md:text-5xl font-black text-slate-900 tracking-widest text-shadow uppercase">PLAYER 1 WINS!</h1>
+                </div>
+                
+                <div class="p-5 flex flex-col items-center gap-4 relative overflow-y-auto">
+                    <div class="avatar-frame winner-avatar-frame border-yellow-400 shadow-[0_0_30px_yellow] bg-black z-20" id="winner-avatar">
+                    </div>
+
+                    <div class="w-full mt-4 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <div class="bg-slate-950 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+                            <h3 class="text-xl font-bold text-yellow-500">🏆 HALL OF FAME</h3>
+                            <button id="btn-clear-history" class="text-sm bg-red-900/50 hover:bg-red-600 text-red-200 hover:text-white px-3 py-1 rounded transition focus:outline-none">Clear History</button>
+                        </div>
+                        <div class="max-h-44 overflow-y-auto">
+                            <table class="w-full text-left text-sm text-slate-300">
+                                <thead class="bg-slate-800/50 text-slate-400 sticky top-0">
+                                    <tr>
+                                        <th class="px-4 py-2 font-bold">Time</th>
+                                        <th class="px-4 py-2 font-bold text-blue-400">P1</th>
+                                        <th class="px-4 py-2 font-bold text-center">VS</th>
+                                        <th class="px-4 py-2 font-bold text-red-400 text-right">P2</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-tbody" class="divide-y divide-slate-700/50">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-950 p-4 text-center">
+                    <button id="btn-play-again" class="bg-blue-600 hover:bg-blue-500 text-white font-black text-lg px-10 py-2 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] hover:scale-105 transition-all focus:outline-none">PLAY AGAIN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SETTINGS NÚT TRÊN CÙNG TRÁI -->
+        <!-- ========================================== -->
+        <button id="open-settings-btn" class="absolute top-[2%] left-[1.5%] p-3 bg-edVang hover:bg-edVangHover text-edNavy rounded-full shadow-ed transition transform hover:scale-110 z-[80] focus:outline-none" title="Cài Đặt Game">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        </button>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SETTINGS MODAL -->
+    <!-- ========================================== -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[1000] flex items-center justify-center opacity-0 pointer-events-none">
+        <div class="bg-edKem w-11/12 max-w-[1400px] h-[95vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border-4 border-edNavy transform transition-transform scale-95 duration-200" id="modal-content">
+            
+            <div class="bg-edNavy text-white px-6 py-4 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚙️</span>
+                    <h2 class="text-2xl font-bold uppercase tracking-wider text-edVang">Hệ Thống Cài Đặt</h2>
+                    
+                    <button id="toggle-grid-btn" class="ml-4 p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg shadow transition text-sm flex items-center gap-2 focus:outline-none" title="Bật/Tắt Lưới Tọa Độ (A-P, 1-9)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                        <span class="font-bold hidden md:inline">Bật Lưới Tọa Độ</span>
+                    </button>
+                </div>
+                <button id="close-settings-btn" class="text-gray-300 hover:text-white transition focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex px-6 pt-4 gap-2 bg-white border-b border-gray-200 shrink-0">
+                <button class="tab-btn active px-6 py-3 rounded-t-lg font-bold text-lg focus:outline-none" data-target="tab-data">1. DATA (Dữ Liệu)</button>
+                <button class="tab-btn px-6 py-3 rounded-t-lg font-bold text-lg focus:outline-none" data-target="tab-hero-boss">2. PLAYERS & BOSS</button>
+                <button class="tab-btn px-6 py-3 rounded-t-lg font-bold text-lg text-teal-700 focus:outline-none" data-target="tab-skills">3. SKILLS</button>
+                <button class="tab-btn px-6 py-3 rounded-t-lg font-black text-lg text-orange-600 border-b-4 border-orange-500 focus:outline-none" data-target="tab-controls">4. CONTROLS (Phím)</button>
+                <div class="flex-grow"></div>
+                <button id="save-and-close-btn" class="px-8 py-2 mb-2 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.5)] flex items-center gap-2 transition transform hover:scale-105 border-2 border-blue-400 focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    <span>LƯU & ĐÓNG</span>
+                </button>
+            </div>
+
+            <div class="flex-grow overflow-hidden relative p-6 bg-edKem">
+                
+                <!-- TAB 1: DATA -->
+                <div id="tab-data" class="tab-content active h-full flex flex-col">
+                    <div class="data-toolbar">
+                        <div class="data-toolbar-row data-toolbar-primary">
+                            <div class="preset-panel data-toolbar-card">
+                                <div class="preset-label">🎯 Presets</div>
+                                <input type="hidden" id="setting_game_preset" data-save="game_preset" value="classic">
+                                <button type="button" class="preset-btn active" data-preset="classic">PvP</button>
+                                <button type="button" class="preset-btn" data-preset="raid">Boss Raid</button>
+                                <button type="button" class="preset-btn preset-btn-god" data-preset="god">⚡ God Mode</button>
+                                <label class="shop-toggle-chip" title="Bật/tắt shop cho mode hiện tại">
+                                    <input type="checkbox" id="setting_shop_enabled" data-save="setting_shop_enabled">
+                                    <span>🛒 Shop</span>
+                                </label>
+                            </div>
+
+                            <div class="quick-start-panel data-toolbar-card">
+                                <div class="quick-start-label">🚀 Sample Data</div>
+                                <button type="button" class="sample-data-btn" data-sample="animals">Animals</button>
+                                <button type="button" class="sample-data-btn" data-sample="classroom">Classroom</button>
+                                <button type="button" class="sample-data-btn" data-sample="actions">Actions</button>
+                            </div>
+
+                            <div id="setup-status-card" class="setup-status-card ready">
+                                <div class="font-black text-sm">✅ Ready</div>
+                                <div id="setup-status-text" class="text-xs font-bold">0 active questions</div>
+                            </div>
+                        </div>
+
+                        <div class="data-toolbar-row data-toolbar-secondary">
+                            <div class="data-toolbar-card compact-control-card bg-blue-50 border-blue-200">
+                                <span class="toolbar-label text-blue-800">Column format</span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-bold text-xs text-gray-700">A:</span>
+                                    <select id="col-a-type" data-save="col_a_type" class="compact-select">
+                                        <option value="text" selected>Text</option>
+                                        <option value="image">Image</option>
+                                    </select>
+                                    <span class="font-bold text-xs text-gray-700">B:</span>
+                                    <select id="col-b-type" data-save="col_b_type" class="compact-select">
+                                        <option value="text" selected>Text</option>
+                                        <option value="image">Image</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="data-toolbar-card compact-control-card bg-gray-50 border-gray-300">
+                                <span class="toolbar-label text-gray-800">Question order</span>
+                                <select id="setting_quiz_mode" data-save="setting_quiz_mode" class="compact-select w-full">
+                                    <option value="sequential">Sequential</option>
+                                    <option value="random">Random</option>
+                                </select>
+                            </div>
+
+                            <div class="data-toolbar-card compact-control-card bg-emerald-50 border-emerald-200 grow">
+                                <span class="toolbar-label text-emerald-800">Image source</span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <input id="image-upload-input" type="file" accept="image/*" multiple class="hidden">
+                                    <button id="btn-upload-images" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-bold shadow transition focus:outline-none">Upload</button>
+                                    <button id="btn-clear-uploaded-images" type="button" class="bg-slate-500 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs font-bold shadow transition focus:outline-none">Clear</button>
+                                    <span id="uploaded-images-count" class="text-xs font-bold text-emerald-700">0 ảnh</span>
+                                </div>
+                            </div>
+
+                            <div class="data-toolbar-actions">
+                                <button id="btn-add-row" type="button" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition flex items-center gap-1 focus:outline-none">
+                                    ➕ Add Row
+                                </button>
+                                <button id="btn-clear-data" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition flex items-center gap-1 focus:outline-none">
+                                    🗑️ Clear All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-container bg-white rounded-xl shadow-sm border border-gray-300 flex-grow relative">
+                        <table class="excel-table" id="data-grid">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th style="width: 45%;" class="text-left relative">CỘT A (Dữ Liệu 1) <span class="absolute right-2 top-2 text-xs font-normal opacity-80" id="col-a-lbl"></span></th>
+                                    <th style="width: 45%;" class="text-left relative">CỘT B (Dữ Liệu 2) <span class="absolute right-2 top-2 text-xs font-normal opacity-80" id="col-b-lbl"></span></th>
+                                    <th style="width: 10%;">ACTIVE (C)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="grid-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: HERO & BOSS -->
+                <div id="tab-hero-boss" class="tab-content h-full overflow-y-auto pb-10">
+                    <div class="grid grid-cols-2 gap-6 p-4">
+                        <div class="bg-blue-50 p-4 rounded-xl border-2 border-blue-300 shadow-sm">
+                            <h3 class="font-bold text-blue-900 mb-2">🔵 PLAYER 1 (P1) AVATAR</h3>
+                            <input type="text" id="p1-avatar-input" data-save="p1_avatar" class="w-full p-3 border border-blue-300 rounded-lg outline-none focus:border-blue-500" placeholder="Nhập số (1-20) HOẶC Link Tenor/Ảnh">
+                            <p class="text-xs text-gray-500 mt-2">Hỗ trợ tự động: Nhập số tự hiểu là ảnh Local (Hero/1.png). Nhập Link tự tải từ mạng.</p>
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-xl border-2 border-red-300 shadow-sm">
+                            <h3 class="font-bold text-red-900 mb-2">🔴 PLAYER 2 / BOSS AVATAR</h3>
+                            <input type="text" id="p2-avatar-input" data-save="p2_avatar" class="w-full p-3 border border-red-300 rounded-lg outline-none focus:border-red-500" placeholder="Nhập số (1-20) HOẶC Link Tenor/Ảnh">
+                            <p class="text-xs text-gray-500 mt-2">Hỗ trợ tự động: Nhập số tự hiểu là ảnh Local (Hero/1.png). Nhập Link tự tải từ mạng.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-ed border-t-4 border-edNavy overflow-hidden mb-6 mx-4">
+                        <table class="w-full text-left border-collapse table-fixed">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-800 text-xl border-b-2 border-gray-300">
+                                    <th class="py-4 px-6 font-extrabold w-[25%] tracking-wide">📊 CHỈ SỐ</th>
+                                    <th class="py-4 px-6 font-extrabold w-[37.5%] text-blue-700 border-l border-gray-300 bg-blue-50/50">🔵 PLAYER 1 (P1)</th>
+                                    <th class="py-4 px-6 font-extrabold w-[37.5%] text-red-700 border-l border-gray-300 bg-red-50/50">🔴 PLAYER 2 / BOSS</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-base text-gray-800 divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-4 px-6 font-bold text-gray-700">🌌 Hình Nền (Background)</td>
+                                    <td colspan="2" class="py-4 px-6 border-l border-gray-200 bg-purple-50/20">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <input type="text" id="game-bg-id" data-save="game_bg_id" value="" class="flex-1 p-2 border border-purple-300 rounded font-bold text-center focus:ring-2 focus:ring-purple-500 outline-none bg-white" placeholder="Nhập Link Ảnh (.jpg, .png, .gif) hoặc Tenor Link/ID để đổi nền">
+                                            <div class="flex items-center gap-1 bg-white p-2 rounded border border-purple-300 shadow-sm shrink-0">
+                                                <span class="text-xs font-bold text-purple-900">Độ mờ:</span>
+                                                <input type="number" id="game-bg-opacity" data-save="game_bg_opacity" value="40" min="0" max="100" class="w-12 text-center font-bold text-purple-700 outline-none border-b border-purple-200 focus:border-purple-500">
+                                                <span class="text-xs font-bold text-purple-700">%</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-4 px-6 font-bold text-gray-700">❤️ Max HP</td>
+                                    <td class="py-4 px-6 border-l border-gray-200 bg-blue-50/20">
+                                        <input type="number" id="hero-max-hp" data-save="hero_max_hp" value="100" class="w-24 p-2 border border-blue-300 rounded font-black text-blue-700 text-center focus:ring-2 focus:ring-blue-500 outline-none text-lg">
+                                    </td>
+                                    <td class="py-4 px-6 border-l border-gray-200 bg-red-50/20">
+                                        <input type="number" id="boss-max-hp" data-save="boss_max_hp" value="1000" class="w-24 p-2 border border-red-300 rounded font-black text-red-700 text-center focus:ring-2 focus:ring-red-500 outline-none text-lg">
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-4 px-6 font-bold text-gray-700">⚔️ Thông số kỹ năng cơ bản (Basic Actions)</td>
+                                    <td class="py-4 px-6 border-l border-gray-200 bg-blue-50/20">
+                                        <div class="bg-white p-3 rounded border border-blue-200 shadow-sm flex flex-col gap-2">
+                                            <div class="text-xs font-bold text-blue-800 uppercase border-b border-blue-100 pb-1">Hệ Số Quy Đổi (1 Mana =)</div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <div class="flex items-center justify-between"><span class="text-sm font-bold w-16">ATK 🏹</span><input type="number" id="hero-mana-atk" data-save="hero_mana_atk" value="50" class="w-16 p-1 text-center border rounded font-bold text-orange-600 outline-none"></div>
+                                                <div class="flex items-center justify-between"><span class="text-sm font-bold w-16">DEF 🛡️</span><input type="number" id="hero-mana-def" data-save="hero_mana_def" value="10" class="w-12 p-1 text-center border rounded font-bold text-blue-600 outline-none"></div>
+                                                <div class="flex items-center justify-between mt-1"><span class="text-xs font-bold text-gray-600">Max Shield:</span><input type="number" id="hero-max-shield" data-save="hero_max_shield" value="100" class="w-12 p-1 text-center border rounded font-bold text-purple-600 outline-none"></div>
+                                                <div class="flex items-center justify-between border-t border-blue-100 pt-1.5 mt-0.5"><span class="text-sm font-bold w-16">HEAL ✚</span><input type="number" id="hero-mana-heal" data-save="hero_mana_heal" value="15" class="w-16 p-1 text-center border rounded font-bold text-green-600 outline-none"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="py-4 px-6 border-l border-gray-200 bg-red-50/20">
+                                        <div class="bg-white p-3 rounded border border-red-200 shadow-sm flex flex-col gap-2">
+                                            <div class="text-xs font-bold text-red-800 uppercase border-b border-red-100 pb-1">Hệ Số Quy Đổi (1 Mana =)</div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <div class="flex items-center justify-between"><span class="text-sm font-bold w-16">ATK 🏹</span><input type="number" id="boss-mana-atk" data-save="boss_mana_atk" value="50" class="w-16 p-1 text-center border rounded font-bold text-orange-600 outline-none"></div>
+                                                <div class="flex items-center justify-between"><span class="text-sm font-bold w-16">DEF 🛡️</span><input type="number" id="boss-mana-def" data-save="boss_mana_def" value="10" class="w-12 p-1 text-center border rounded font-bold text-blue-600 outline-none"></div>
+                                                <div class="flex items-center justify-between mt-1"><span class="text-xs font-bold text-gray-600">Max Shield:</span><input type="number" id="boss-max-shield" data-save="boss_max_shield" value="100" class="w-12 p-1 text-center border rounded font-bold text-purple-600 outline-none"></div>
+                                                <div class="flex items-center justify-between border-t border-red-100 pt-1.5 mt-0.5"><span class="text-sm font-bold w-16">HEAL ✚</span><input type="number" id="boss-mana-heal" data-save="boss_mana_heal" value="15" class="w-16 p-1 text-center border rounded font-bold text-green-600 outline-none"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-4 px-6 font-bold text-red-700">🔥 Cơ chế Hủy Diệt (Sudden Death)</td>
+                                    <td colspan="2" class="py-4 px-6 border-l border-gray-200 bg-orange-50/20">
+                                        <div class="flex items-center gap-4">
+                                            <div class="flex items-center gap-2 bg-white p-2 rounded border border-orange-300 shadow-sm">
+                                                <span class="text-xs font-bold text-orange-900">Thời gian đếm ngược:</span>
+                                                <input type="number" id="sudden-death-time" data-save="sudden_death_time" value="3" min="1" class="w-12 text-center font-bold text-orange-700 outline-none border-b border-orange-200 focus:border-orange-500">
+                                                <span class="text-xs font-bold text-orange-700">phút</span>
+                                            </div>
+                                            <div class="flex items-center gap-2 bg-white p-2 rounded border border-red-300 shadow-sm">
+                                                <span class="text-xs font-bold text-red-900">Sát thương Rút máu:</span>
+                                                <input type="number" id="sudden-death-dmg" data-save="sudden_death_dmg" value="5" min="1" class="w-16 text-center font-bold text-red-700 outline-none border-b border-red-200 focus:border-red-500">
+                                                <span class="text-xs font-bold text-red-700">HP / giây</span>
+                                            </div>
+                                        </div>
+                                        <p class="text-xs text-gray-600 mt-2">Sau thời gian này, cả 2 bên sẽ tự động bị rút máu mỗi giây để ép kết thúc trận đấu.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex gap-4 p-4 mx-4 mb-6 bg-orange-50 rounded-xl border border-orange-200 shadow-sm">
+                        <div class="flex-1">
+                            <label class="text-xs font-bold text-gray-500 block">Thời gian Stun khi sai (Giây):</label>
+                            <input type="number" id="setting_stun_time" data-save="setting_stun_time" value="2" class="w-full h-8 border rounded px-2 text-center font-bold text-orange-700 outline-none focus:border-orange-500">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs font-bold text-gray-500 block">Cooldown Giáp (s):</label>
+                            <input type="number" id="setting_cd_def" data-save="setting_cd_def" value="5" class="w-full h-8 border rounded px-2 text-center font-bold outline-none focus:border-blue-500">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs font-bold text-gray-500 block">Cooldown Tấn công (s):</label>
+                            <input type="number" id="setting_cd_atk" data-save="setting_cd_atk" value="3" class="w-full h-8 border rounded px-2 text-center font-bold outline-none focus:border-blue-500">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs font-bold text-gray-500 block">Cooldown Hồi máu (s):</label>
+                            <input type="number" id="setting_cd_heal" data-save="setting_cd_heal" value="8" class="w-full h-8 border rounded px-2 text-center font-bold outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- TAB 3: SKILLS -->
+                <div id="tab-skills" class="tab-content h-full overflow-y-auto pb-10">
+                    <div class="mb-4 bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 p-4 rounded-xl shadow-sm">
+                        <h3 class="text-xl font-black text-blue-900 mb-1">🎭 KHO KỸ NĂNG TUYỆT CHIÊU (ULTIMATE POOL)</h3>
+                        <p class="text-sm text-gray-700 font-medium">Bạn hãy quy định xem **Ai** có quyền nhận được Skill nào khi bốc ngẫu nhiên (Tốn 5 Mana / lần dùng).</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow border border-gray-300 overflow-hidden">
+                        <table class="w-full text-left border-collapse table-fixed">
+                            <thead>
+                                <tr class="bg-gray-800 text-white text-sm uppercase tracking-wider">
+                                    <th class="py-3 px-4 w-[25%] border-r border-gray-700">Kỹ Năng</th>
+                                    <th class="py-3 px-4 w-[40%] border-r border-gray-700">Mô Tả Hiệu Ứng</th>
+                                    <th class="py-3 px-4 w-[15%] border-r border-gray-700 text-center">Thông Số</th>
+                                    <th class="py-3 px-4 w-[20%] text-center text-yellow-300 font-black">PHÂN QUYỀN</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-purple-900 border-r border-gray-200">👁️ Copycat (Đạo Chích)</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Sao chép tuyệt chiêu đối thủ vừa dùng và bắn ngược lại.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="5" class="w-16 p-1 border rounded text-center" data-save="skill_1_time"> Giây</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_1_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-gray-700 border-r border-gray-200">🥷 Shuriken Barrage</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Ném liên hoàn X phi tiêu nhanh. Sát thương = Base DMG * X.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="3" class="w-16 p-1 border rounded text-center" data-save="skill_2_multi"> Số lượng</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_2_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-orange-700 border-r border-gray-200">☄️ Meteor Shower</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Gọi 15 sao băng rơi lả tả xuống màn hình đối thủ.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="5" class="w-16 p-1 border rounded text-center" data-save="skill_3_dmg"> DMG/hit</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_3_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-yellow-600 border-r border-gray-200">⚡ Thunder Strike</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Sét đánh chớp giật, tê liệt (Stun) 4 phím Quiz đối phương.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center text-xs">
+                                        DMG: <input type="number" value="20" class="w-12 p-1 border rounded text-center mb-1" data-save="skill_4_dmg"><br>
+                                        Giây: <input type="number" value="3" class="w-12 p-1 border rounded text-center" data-save="skill_4_time">
+                                    </td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_4_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-green-700 border-r border-gray-200">🍔 Junk Food Blind</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Dán đồ ăn vặt che kín 4 ô đáp án của đối thủ.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="5" class="w-16 p-1 border rounded text-center" data-save="skill_5_time"> Giây</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_5_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-cyan-700 border-r border-gray-200">❄️ Absolute Freeze</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Kỷ băng hà, đóng băng cứng mọi phím và avatar đối phương.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="4" class="w-16 p-1 border rounded text-center" data-save="skill_6_time"> Giây</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_6_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-pink-600 border-r border-gray-200">🛡️ Mirror Shield</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Phản đòn. Dội lại 50% sát thương/hiệu ứng của skill kế tiếp.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="5" class="w-16 p-1 border rounded text-center" data-save="skill_7_time"> Giây</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_7_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-emerald-700 border-r border-gray-200">💤 Rest & Heal</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Ngủ tạo Giáp. Nếu hết giờ Giáp ko vỡ -> Cộng vào Máu.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center text-xs">
+                                        Shield: <input type="number" value="100" class="w-12 p-1 border rounded text-center mb-1" data-save="skill_8_shield"><br>
+                                        Giây: <input type="number" value="5" class="w-12 p-1 border rounded text-center" data-save="skill_8_time">
+                                    </td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_8_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-red-700 border-r border-gray-200">🔥 Mega Fireball</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Bắn cầu lửa khổng lồ, trừ lượng HP cực mạnh.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="100" class="w-16 p-1 border rounded text-center" data-save="skill_9_dmg"> DMG</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_9_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="py-2 px-4 font-bold text-blue-500 border-r border-gray-200">☄️ Kamehameha</td>
+                                    <td class="py-2 px-4 text-sm text-gray-600 border-r border-gray-200">Phóng luồng năng lượng khổng lồ xuyên thấu đối phương.</td>
+                                    <td class="py-2 px-4 border-r border-gray-200 text-center"><input type="number" value="120" class="w-16 p-1 border rounded text-center" data-save="skill_10_dmg"> DMG</td>
+                                    <td class="py-2 px-4 text-center">
+                                        <select data-save="skill_10_owner" class="w-full p-2 border border-gray-300 rounded font-bold text-sm outline-none cursor-pointer focus:ring-2 focus:ring-blue-500">
+                                            <option value="p1">🔵 Player 1</option><option value="p2">🔴 Player 2</option><option value="both" selected>⚪ Cả Hai</option><option value="none">❌ Khóa</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 4: CONTROLS (8 KEYS/PLAYER) -->
+                <div id="tab-controls" class="tab-content h-full overflow-y-auto">
+                    <div class="mb-4 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-xl shadow-sm">
+                        <h3 class="text-xl font-black text-orange-900 mb-1">🎮 CẤU HÌNH BÀN PHÍM (8 Nút/Người)</h3>
+                        <p class="text-sm text-gray-700 font-medium">Nhấp chuột vào ô bất kỳ và <strong>nhấn 1 phím trên bàn phím</strong> để thay đổi. Tuyệt đối không đặt trùng phím.</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-8 pb-8">
+                        <!-- P1 Keys -->
+                        <div class="bg-blue-50 border-2 border-blue-300 rounded-2xl p-6 shadow-sm relative flex flex-col">
+                            <div class="absolute -top-4 left-6 bg-blue-600 text-white px-4 py-1 rounded-full font-black tracking-widest text-sm shadow-md">🔵 PLAYER 1 (P1)</div>
+                            
+                            <h4 class="font-bold text-blue-900 mb-3 border-b border-blue-200 pb-1 mt-2">Phím Trả Lời Quiz (4 Đáp án)</h4>
+                            <div class="grid grid-cols-4 gap-2 mb-6">
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">A</span><input type="text" readonly data-save="key_p1_a1" value="A" class="keybind-input w-full h-14 bg-white border-2 border-blue-300 rounded-lg text-blue-700 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">B</span><input type="text" readonly data-save="key_p1_a2" value="S" class="keybind-input w-full h-14 bg-white border-2 border-blue-300 rounded-lg text-blue-700 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">C</span><input type="text" readonly data-save="key_p1_a3" value="D" class="keybind-input w-full h-14 bg-white border-2 border-blue-300 rounded-lg text-blue-700 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">D</span><input type="text" readonly data-save="key_p1_a4" value="F" class="keybind-input w-full h-14 bg-white border-2 border-blue-300 rounded-lg text-blue-700 shadow-inner"></div>
+                            </div>
+
+                            <h4 class="font-bold text-blue-900 mb-3 border-b border-blue-200 pb-1">Phím Hành Động Cơ Bản</h4>
+                            <div class="grid grid-cols-3 gap-4 mb-6">
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">🛡️ Giáp</span><input type="text" readonly data-save="key_p1_s1" value="Q" class="keybind-input w-full h-14 bg-blue-100 border-2 border-blue-400 rounded-lg text-blue-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">🏹 Tấn Công</span><input type="text" readonly data-save="key_p1_s2" value="W" class="keybind-input w-full h-14 bg-blue-100 border-2 border-blue-400 rounded-lg text-blue-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">✚ Hồi Máu</span><input type="text" readonly data-save="key_p1_s3" value="E" class="keybind-input w-full h-14 bg-blue-100 border-2 border-blue-400 rounded-lg text-blue-800 shadow-inner"></div>
+                            </div>
+
+                            <h4 class="font-bold text-blue-900 mb-3 border-b border-blue-200 pb-1">Phím Shop Boss Raid</h4>
+                            <div class="grid grid-cols-3 gap-4 mb-6">
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">⚡ Mana</span><input type="text" readonly data-save="key_p1_shop_mana" value="1" class="keybind-input w-full h-14 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">🛡️ Shield</span><input type="text" readonly data-save="key_p1_shop_shield" value="2" class="keybind-input w-full h-14 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">💎 Double</span><input type="text" readonly data-save="key_p1_shop_double" value="3" class="keybind-input w-full h-14 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-800 shadow-inner"></div>
+                            </div>
+
+                            <h4 class="font-bold text-blue-900 mb-3 border-b border-blue-200 pb-1 mt-auto">Phím Tung Chiêu (Ultimate)</h4>
+                            <div class="flex justify-center">
+                                <div class="flex flex-col items-center gap-2 w-1/2">
+                                    <span class="text-xs font-bold text-gray-500 text-center">Bấm để dùng Skill đang chờ</span>
+                                    <input type="text" readonly data-save="key_p1_ult" value="SPACE" class="keybind-input w-full h-16 bg-blue-600 border-b-4 border-blue-800 rounded-xl text-white shadow-lg text-2xl">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- P2 Keys -->
+                        <div class="bg-red-50 border-2 border-red-300 rounded-2xl p-6 shadow-sm relative flex flex-col">
+                            <div class="absolute -top-4 left-6 bg-red-600 text-white px-4 py-1 rounded-full font-black tracking-widest text-sm shadow-md">🔴 PLAYER 2 (P2)</div>
+                            
+                            <h4 class="font-bold text-red-900 mb-3 border-b border-red-200 pb-1 mt-2">Phím Trả Lời Quiz (4 Đáp án)</h4>
+                            <div class="grid grid-cols-4 gap-2 mb-6">
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">A</span><input type="text" readonly data-save="key_p2_a1" value="H" class="keybind-input w-full h-14 bg-white border-2 border-red-300 rounded-lg text-red-700 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">B</span><input type="text" readonly data-save="key_p2_a2" value="J" class="keybind-input w-full h-14 bg-white border-2 border-red-300 rounded-lg text-red-700 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">C</span><input type="text" readonly data-save="key_p2_a3" value="K" class="keybind-input w-full h-14 bg-white border-2 border-red-300 rounded-lg text-red-700 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">D</span><input type="text" readonly data-save="key_p2_a4" value="L" class="keybind-input w-full h-14 bg-white border-2 border-red-300 rounded-lg text-red-700 shadow-inner"></div>
+                            </div>
+
+                            <h4 class="font-bold text-red-900 mb-3 border-b border-red-200 pb-1">Phím Hành Động Cơ Bản</h4>
+                            <div class="grid grid-cols-3 gap-4 mb-6">
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">🛡️ Giáp</span><input type="text" readonly data-save="key_p2_s1" value="U" class="keybind-input w-full h-14 bg-red-100 border-2 border-red-400 rounded-lg text-red-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">🏹 Tấn Công</span><input type="text" readonly data-save="key_p2_s2" value="I" class="keybind-input w-full h-14 bg-red-100 border-2 border-red-400 rounded-lg text-red-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">✚ Hồi Máu</span><input type="text" readonly data-save="key_p2_s3" value="O" class="keybind-input w-full h-14 bg-red-100 border-2 border-red-400 rounded-lg text-red-800 shadow-inner"></div>
+                            </div>
+
+                            <h4 class="font-bold text-red-900 mb-3 border-b border-red-200 pb-1">Phím Shop Boss Raid</h4>
+                            <div class="grid grid-cols-3 gap-4 mb-6">
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">⚡ Mana</span><input type="text" readonly data-save="key_p2_shop_mana" value="7" class="keybind-input w-full h-14 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">🛡️ Shield</span><input type="text" readonly data-save="key_p2_shop_shield" value="8" class="keybind-input w-full h-14 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-800 shadow-inner"></div>
+                                <div class="flex flex-col items-center gap-1"><span class="text-xs font-bold text-gray-500">💎 Double</span><input type="text" readonly data-save="key_p2_shop_double" value="9" class="keybind-input w-full h-14 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-800 shadow-inner"></div>
+                            </div>
+
+                            <h4 class="font-bold text-red-900 mb-3 border-b border-red-200 pb-1 mt-auto">Phím Tung Chiêu (Ultimate)</h4>
+                            <div class="flex justify-center">
+                                <div class="flex flex-col items-center gap-2 w-1/2">
+                                    <span class="text-xs font-bold text-gray-500 text-center">Bấm để dùng Skill đang chờ</span>
+                                    <input type="text" readonly data-save="key_p2_ult" value="ENTER" class="keybind-input w-full h-16 bg-red-600 border-b-4 border-red-800 rounded-xl text-white shadow-lg text-2xl">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- HÀM XỬ LÝ CLICK CHUỘT CHO TOÀN BỘ GAME -->
+    <script>
+        window.triggerClickAnswer = function(playerPrefix, index) {
+            if (window.GameplayManager) {
+                window.GameplayManager.handlePlayerAnswer(playerPrefix, index);
+            }
+        };
+
+        window.triggerClickSkill = function(playerPrefix, skillType) {
+            if (window.GameplayManager) {
+                if(skillType === 'ult') {
+                    window.GameplayManager.handleSkill(playerPrefix);
+                } else {
+                    window.useBasicSkill(playerPrefix, skillType);
+                }
+            }
+        };
+    </script>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
